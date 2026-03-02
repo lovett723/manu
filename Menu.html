@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>微信点菜单 · 自由配图（可编辑/删除品类）</title>
+    <!-- html2canvas 库：用于将选中菜单转为图片 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        body {
+            background: #f3f4f6;
+            min-height: 100vh;
+            padding: 16px 12px 100px;
+            display: flex;
+            flex-direction: column;
+        }
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 28px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            margin-bottom: 18px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+            background: rgba(255,255,255,0.9);
+        }
+        .app-header h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 10px 22px;
+            border-radius: 40px;
+            box-shadow: 0 6px 14px rgba(59,130,246,0.25);
+            cursor: pointer;
+            transition: 0.15s;
+            border: 1px solid rgba(255,255,255,0.2);
+            white-space: nowrap;
+        }
+        .btn-primary:active {
+            background: #2563eb;
+            transform: scale(0.96);
+            box-shadow: 0 2px 6px rgba(59,130,246,0.4);
+        }
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+        .category-card {
+            background: white;
+            border-radius: 28px;
+            padding: 18px 16px 16px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.02);
+            border: 1px solid #f0f0f0;
+        }
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-left: 4px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .category-header h3 {
+            font-size: 1.3rem;
+            font-weight: 650;
+            color: #0f172a;
+            border-left: 6px solid #3b82f6;
+            padding-left: 12px;
+            flex: 1 1 auto;
+        }
+        .cat-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .edit-cat, .delete-cat {
+            background: #f1f5f9;
+            border: none;
+            color: #334155;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 8px 14px;
+            border-radius: 40px;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            transition: 0.1s;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .edit-cat:active {
+            background: #e2e8f0;
+        }
+        .delete-cat:active {
+            background: #fee2e2;
+            color: #b91c1c;
+            border-color: #fecaca;
+        }
+        .add-item-btn {
+            background: #eef2ff;
+            border: none;
+            color: #3b82f6;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 8px 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            border: 1px solid #dbeafe;
+            transition: 0.1s;
+            white-space: nowrap;
+        }
+        .add-item-btn:active {
+            background: #dbeafe;
+        }
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fafafc;
+            padding: 12px 16px;
+            border-radius: 60px;
+            border: 1px solid #f1f5f9;
+            transition: 0.1s;
+        }
+        .item-name {
+            font-size: 1.08rem;
+            font-weight: 500;
+            color: #1e293b;
+            word-break: break-word;
+            max-width: 55%;
+        }
+        .item-controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .item-controls button {
+            width: 44px;
+            height: 44px;
+            border-radius: 44px;
+            border: none;
+            background: white;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #3b82f6;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02);
+            border: 1px solid #e2e8f0;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .item-controls button:active {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+            transform: scale(0.92);
+        }
+        .item-controls .quantity {
+            font-size: 1.3rem;
+            font-weight: 600;
+            min-width: 28px;
+            text-align: center;
+            color: #0f172a;
+        }
+        .empty-items {
+            text-align: center;
+            color: #94a3b8;
+            padding: 22px 0 12px;
+            font-size: 0.95rem;
+            background: #f8fafc;
+            border-radius: 60px;
+        }
+        .generate-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, #ffffff, #ffffffec);
+            padding: 16px 20px 28px;
+            box-shadow: 0 -6px 20px rgba(0,0,0,0.02);
+            border-top: 1px solid #edf2f7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            z-index: 20;
+        }
+        .btn-generate {
+            background: #0f172a;
+            color: white;
+            border: none;
+            border-radius: 60px;
+            padding: 18px 28px;
+            width: 100%;
+            max-width: 400px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 24px rgba(15,23,42,0.25);
+            cursor: pointer;
+            transition: 0.15s;
+            border: 1px solid #334155;
+        }
+        .btn-generate:active {
+            background: #1e293b;
+            transform: scale(0.97);
+        }
+        .image-preview {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            border-radius: 32px;
+            background: white;
+            padding: 16px;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .image-preview p {
+            color: #475569;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        .preview-img {
+            max-width: 100%;
+            border-radius: 24px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+            border: 2px solid white;
+        }
+        .note {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            text-align: center;
+        }
+        /* 隐藏的截图区域 */
+        #capture-area {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 380px;
+            background: white;
+            padding: 24px 22px;
+            border-radius: 32px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.1);
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .capture-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0b1e33;
+            margin-bottom: 8px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+        .capture-date {
+            text-align: center;
+            color: #64748b;
+            font-size: 1rem;
+            border-bottom: 2px dashed #cbd5e1;
+            padding-bottom: 18px;
+            margin-bottom: 18px;
+        }
+        .capture-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 1.2rem;
+        }
+        .capture-item-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+        .capture-item-qty {
+            background: #eef2ff;
+            padding: 6px 18px;
+            border-radius: 60px;
+            color: #3b82f6;
+            font-weight: 700;
+        }
+        .capture-total-line {
+            margin-top: 20px;
+            text-align: right;
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h2>📋 自选菜单</h2>
+        <button class="btn-primary" id="addCategoryBtn">+ 增加品类</button>
+    </div>
+
+    <!-- 动态菜单渲染区 -->
+    <div id="menuContainer" class="menu-container"></div>
+
+    <!-- 底部生成图片按钮及预览 -->
+    <div class="generate-area">
+        <button class="btn-generate" id="generateImgBtn">✨ 生成今日点菜图片</button>
+        <div id="imagePreview" class="image-preview" style="display: none;">
+            <p>👇 长按图片保存分享</p>
+            <img id="previewImg" class="preview-img" src="" alt="今日点菜单">
+        </div>
+        <div class="note">点击品类旁的 ✏️ 可重命名，🗑️ 可删除品类</div>
+    </div>
+
+    <!-- 隐藏的截图专用容器 -->
+    <div id="capture-area"></div>
+
+    <script>
+        (function() {
+            // ----- 初始默认菜单数据 -----
+            const menu = [
+                {
+                    categoryName: '🔥 热菜',
+                    items: [
+                        { name: '红烧肉', quantity: 0 },
+                        { name: '鱼香肉丝', quantity: 0 },
+                        { name: '宫保鸡丁', quantity: 0 }
+                    ]
+                },
+                {
+                    categoryName: '🥗 凉菜',
+                    items: [
+                        { name: '拍黄瓜', quantity: 0 },
+                        { name: '凉拌木耳', quantity: 0 }
+                    ]
+                },
+                {
+                    categoryName: '🍚 主食',
+                    items: [
+                        { name: '米饭', quantity: 0 },
+                        { name: '馒头', quantity: 0 },
+                        { name: '炒面', quantity: 0 }
+                    ]
+                }
+            ];
+
+            // ----- 获取DOM元素 -----
+            const menuContainer = document.getElementById('menuContainer');
+            const addCategoryBtn = document.getElementById('addCategoryBtn');
+            const generateBtn = document.getElementById('generateImgBtn');
+            const previewDiv = document.getElementById('imagePreview');
+            const previewImg = document.getElementById('previewImg');
+            const captureArea = document.getElementById('capture-area');
+
+            // ----- 渲染菜单 (完全基于menu数据) -----
+            function renderMenu() {
+                if (menu.length === 0) {
+                    menuContainer.innerHTML = '<div style="text-align:center; padding:40px; color:#aaa;">👆 点击上方“增加品类”开始创建菜单</div>';
+                    return;
+                }
+
+                let html = '';
+                menu.forEach((category, catIndex) => {
+                    // 品类卡片开始
+                    html += `<div class="category-card">`;
+                    html += `<div class="category-header">`;
+                    html += `<h3>${category.categoryName}</h3>`;
+                    // 操作按钮组：编辑、删除、添菜
+                    html += `<div class="cat-actions">`;
+                    html += `<button class="edit-cat" data-cat="${catIndex}" title="编辑品类">✏️</button>`;
+                    html += `<button class="delete-cat" data-cat="${catIndex}" title="删除品类">🗑️</button>`;
+                    html += `<button class="add-item-btn" data-cat="${catIndex}">➕ 添菜</button>`;
+                    html += `</div>`;
+                    html += `</div>`;
+
+                    // 菜品列表
+                    if (category.items.length === 0) {
+                        html += `<div class="empty-items">暂无菜品，点“添菜”添加</div>`;
+                    } else {
+                        html += `<div class="item-list">`;
+                        category.items.forEach((item, itemIndex) => {
+                            html += `<div class="item-row">`;
+                            html += `<span class="item-name">${item.name}</span>`;
+                            html += `<div class="item-controls">`;
+                            html += `<button class="dec" data-cat="${catIndex}" data-item="${itemIndex}">−</button>`;
+                            html += `<span class="quantity">${item.quantity}</span>`;
+                            html += `<button class="inc" data-cat="${catIndex}" data-item="${itemIndex}">+</button>`;
+                            html += `</div>`;
+                            html += `</div>`;
+                        });
+                        html += `</div>`;
+                    }
+                    html += `</div>`; // 结束category-card
+                });
+                menuContainer.innerHTML = html;
+            }
+
+            // ----- 更新隐藏截图区域的内容 (根据当前所选菜品) -----
+            function updateCaptureArea() {
+                const today = new Date();
+                const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+                
+                let selectedItems = [];
+                let totalCount = 0;
+                menu.forEach(category => {
+                    category.items.forEach(item => {
+                        if (item.quantity > 0) {
+                            selectedItems.push({ name: item.name, qty: item.quantity });
+                            totalCount += item.quantity;
+                        }
+                    });
+                });
+
+                let captureHtml = `<div class="capture-title">🍜 今日点菜单</div>`;
+                captureHtml += `<div class="capture-date">${dateStr}</div>`;
+
+                if (selectedItems.length === 0) {
+                    captureHtml += `<div style="text-align:center; padding:30px; color:#aaa;">还没有点菜，去上面选几道吧~</div>`;
+                } else {
+                    selectedItems.forEach(item => {
+                        captureHtml += `<div class="capture-item-row">`;
+                        captureHtml += `<span class="capture-item-name">${item.name}</span>`;
+                        captureHtml += `<span class="capture-item-qty">x ${item.qty}</span>`;
+                        captureHtml += `</div>`;
+                    });
+                    captureHtml += `<div class="capture-total-line">共 ${totalCount} 道</div>`;
+                }
+                captureArea.innerHTML = captureHtml;
+            }
+
+            // ----- 生成图片 -----
+            async function generateImage() {
+                updateCaptureArea();
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 30));
+                    const canvas = await html2canvas(captureArea, {
+                        scale: 2,
+                        backgroundColor: '#ffffff',
+                        allowTaint: false,
+                        useCORS: true,
+                        logging: false,
+                        windowWidth: 380,
+                    });
+                    const imgData = canvas.toDataURL('image/png');
+                    previewImg.src = imgData;
+                    previewDiv.style.display = 'flex';
+                } catch (error) {
+                    alert('生成图片失败，请重试');
+                    console.error(error);
+                }
+            }
+
+            // ----- 事件监听 (事件委托) -----
+            menuContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                
+                // 加号
+                if (target.classList.contains('inc')) {
+                    const cat = target.dataset.cat;
+                    const item = target.dataset.item;
+                    if (cat !== undefined && item !== undefined) {
+                        menu[cat].items[item].quantity += 1;
+                        renderMenu();
+                    }
+                    e.preventDefault();
+                }
+                // 减号
+                else if (target.classList.contains('dec')) {
+                    const cat = target.dataset.cat;
+                    const item = target.dataset.item;
+                    if (cat !== undefined && item !== undefined) {
+                        const currentQty = menu[cat].items[item].quantity;
+                        if (currentQty > 0) {
+                            menu[cat].items[item].quantity -= 1;
+                            renderMenu();
+                        }
+                    }
+                    e.preventDefault();
+                }
+                // 添加菜品
+                else if (target.classList.contains('add-item-btn')) {
+                    const cat = target.dataset.cat;
+                    if (cat !== undefined) {
+                        const newDish = prompt('请输入新菜品名称', '例如：蒜蓉生蚝');
+                        if (newDish && newDish.trim() !== '') {
+                            menu[cat].items.push({ name: newDish.trim(), quantity: 0 });
+                            renderMenu();
+                        } else if (newDish !== null) {
+                            alert('名称不能为空');
+                        }
+                    }
+                    e.preventDefault();
+                }
+                // 编辑品类
+                else if (target.classList.contains('edit-cat')) {
+                    const cat = target.dataset.cat;
+                    if (cat !== undefined) {
+                        const newName = prompt('修改品类名称', menu[cat].categoryName);
+                        if (newName && newName.trim() !== '') {
+                            menu[cat].categoryName = newName.trim();
+                            renderMenu();
+                        } else if (newName !== null) {
+                            alert('名称不能为空');
+                        }
+                    }
+                    e.preventDefault();
+                }
+                // 删除品类
+                else if (target.classList.contains('delete-cat')) {
+                    const cat = target.dataset.cat;
+                    if (cat !== undefined) {
+                        if (confirm(`确定要删除品类“${menu[cat].categoryName}”及其所有菜品吗？`)) {
+                            menu.splice(cat, 1);
+                            renderMenu();
+                        }
+                    }
+                    e.preventDefault();
+                }
+            });
+
+            // ----- 增加品类 (顶部按钮) -----
+            addCategoryBtn.addEventListener('click', () => {
+                const newCategory = prompt('请输入新品类名称', '例如：汤羹');
+                if (newCategory && newCategory.trim() !== '') {
+                    menu.push({
+                        categoryName: newCategory.trim(),
+                        items: []
+                    });
+                    renderMenu();
+                } else if (newCategory !== null) {
+                    alert('品类名不能为空');
+                }
+            });
+
+            // ----- 生成图片按钮 -----
+            generateBtn.addEventListener('click', async () => {
+                let hasAny = false;
+                for (let cat of menu) {
+                    for (let item of cat.items) {
+                        if (item.quantity > 0) { hasAny = true; break; }
+                    }
+                }
+                if (!hasAny) {
+                    alert('您还没有选择任何菜品，请先点菜～');
+                    return;
+                }
+                await generateImage();
+            });
+
+            // 初始化渲染
+            renderMenu();
+            previewDiv.style.display = 'none';
+        })();
+    </script>
+</body>
+</html>
