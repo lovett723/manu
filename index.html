@@ -3,24 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>微信点菜单 · 本地持久化（自动保存）</title>
+    <title>女王请点菜</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        /* 样式与之前完全一致，保持不变 */
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
         body { background: #f3f4f6; min-height: 100vh; padding: 16px 12px 100px; display: flex; flex-direction: column; }
-        .app-header { display: flex; align-items: center; justify-content: space-between; background: white; padding: 12px 16px; border-radius: 28px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-bottom: 12px; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(4px); background: rgba(255,255,255,0.9); }
+        .app-header { display: flex; align-items: center; justify-content: space-between; background: white; padding: 12px 16px; border-radius: 28px; margin-bottom: 12px; position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.9); }
         .app-header h2 { font-size: 1.4rem; font-weight: 600; color: #1e293b; }
-        .btn-primary { background: #3b82f6; border: none; color: white; font-weight: 600; font-size: 1rem; padding: 10px 22px; border-radius: 40px; box-shadow: 0 6px 14px rgba(59,130,246,0.25); cursor: pointer; transition: 0.15s; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap; }
+        .btn-primary { background: #3b82f6; border: none; color: white; font-weight: 600; font-size: 1rem; padding: 10px 22px; border-radius: 40px; cursor: pointer; }
         .btn-primary:active { background: #2563eb; transform: scale(0.96); }
 
-        .history-card { background: #ffffffd9; backdrop-filter: blur(8px); border-radius: 28px; margin-bottom: 18px; padding: 10px 16px; border: 1px solid #e9eef3; box-shadow: 0 6px 14px rgba(0,0,0,0.02); }
+        /* 历史菜单卡片 */
+        .history-card { background: #ffffff; border-radius: 28px; margin-bottom: 18px; padding: 10px 16px; border: 1px solid #e9eef3; }
         .history-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
         .history-header h3 { font-size: 1.25rem; font-weight: 650; color: #2d3a4f; display: flex; align-items: center; gap: 6px; }
         .history-toggle { background: none; border: none; font-size: 1.5rem; padding: 8px 12px; cursor: pointer; color: #5f6b7a; }
         .history-content { overflow: hidden; transition: max-height 0.2s ease; }
         .history-content.collapsed { max-height: 0; }
 
+        /* 历史品类卡片 */
         .history-category-card { background: #f9fafc; border-radius: 24px; padding: 14px 12px; margin: 12px 0; border: 1px solid #eef2f6; }
         .history-category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
         .history-category-header h4 { font-size: 1.15rem; font-weight: 650; color: #1e293b; border-left: 5px solid #94a3b8; padding-left: 12px; flex: 1; }
@@ -28,50 +29,47 @@
         .history-edit-cat, .history-delete-cat { background: #f1f5f9; border: none; color: #334155; font-weight: 600; font-size: 0.9rem; padding: 6px 14px; border-radius: 40px; cursor: pointer; border: 1px solid #e2e8f0; white-space: nowrap; }
         .history-edit-cat:active { background: #e2e8f0; }
         .history-delete-cat:active { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-        .add-history-dish-btn { background: #eef2ff; border: 1px dashed #a5b4fc; color: #3b82f6; font-weight: 600; font-size: 0.85rem; padding: 6px 14px; border-radius: 40px; cursor: pointer; }
+
+        /* 添加菜品按钮 */
+        .add-history-dish-btn { background: #eef2ff; border: 1px dashed #a5b4fc; color: #3b82f6; font-weight: 600; font-size: 0.85rem; padding: 6px 14px; border-radius: 40px; cursor: pointer; margin-bottom: 8px; }
+
+        /* 历史菜品列表 */
         .history-dish-list { display: flex; flex-wrap: wrap; gap: 10px; max-height: 200px; overflow-y: auto; padding: 4px 2px; }
-        .history-dish-item { background: white; border-radius: 40px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.01); }
+        .history-dish-item { background: white; border-radius: 40px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; border: 1px solid #e2e8f0; }
         .history-dish-item span { font-weight: 500; color: #334155; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .history-dish-actions { display: flex; gap: 6px; }
         .history-dish-actions button { background: #f8fafc; border: none; width: 36px; height: 36px; border-radius: 36px; font-size: 1.1rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #d1d9e6; }
         .history-dish-actions button:active { background: #e2e8f0; }
 
+        /* 主菜单样式（略，与之前相同） */
         .menu-container { display: flex; flex-direction: column; gap: 18px; margin-bottom: 20px; }
-        .category-card { background: white; border-radius: 28px; padding: 18px 16px 16px; box-shadow: 0 6px 18px rgba(0,0,0,0.02); border: 1px solid #f0f0f0; }
-        .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-left: 4px; flex-wrap: wrap; gap: 8px; }
-        .category-header h3 { font-size: 1.3rem; font-weight: 650; color: #0f172a; border-left: 6px solid #3b82f6; padding-left: 12px; flex: 1 1 auto; }
-        .cat-actions { display: flex; gap: 6px; align-items: center; }
-        .edit-cat, .delete-cat { background: #f1f5f9; border: none; color: #334155; font-weight: 600; font-size: 1rem; padding: 8px 14px; border-radius: 40px; cursor: pointer; border: 1px solid #e2e8f0; }
-        .edit-cat:active { background: #e2e8f0; }
-        .delete-cat:active { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-        .add-item-btn { background: #eef2ff; border: none; color: #3b82f6; font-weight: 600; font-size: 0.9rem; padding: 8px 18px; border-radius: 40px; cursor: pointer; border: 1px solid #dbeafe; white-space: nowrap; }
-        .add-item-btn:active { background: #dbeafe; }
-
+        .category-card { background: white; border-radius: 28px; padding: 18px 16px 16px; border: 1px solid #f0f0f0; }
+        .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .category-header h3 { font-size: 1.3rem; font-weight: 650; color: #0f172a; border-left: 6px solid #3b82f6; padding-left: 12px; flex: 1; }
+        .cat-actions { display: flex; gap: 6px; }
+        .edit-cat, .delete-cat, .add-item-btn { background: #f1f5f9; border: none; color: #334155; font-weight: 600; font-size: 1rem; padding: 8px 14px; border-radius: 40px; cursor: pointer; border: 1px solid #e2e8f0; }
+        .add-item-btn { background: #eef2ff; color: #3b82f6; border-color: #dbeafe; }
         .item-list { display: flex; flex-direction: column; gap: 8px; }
         .item-row { display: flex; align-items: center; justify-content: space-between; background: #fafafc; padding: 8px 16px 8px 20px; border-radius: 60px; border: 1px solid #f1f5f9; }
-        .item-name { font-size: 1.08rem; font-weight: 500; color: #1e293b; word-break: break-word; max-width: 35%; }
-        .item-actions { display: flex; gap: 6px; margin-right: 4px; }
-        .item-actions button { background: white; border: none; width: 40px; height: 40px; border-radius: 40px; font-size: 1.2rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #dce3ec; }
-        .item-actions button:active { background: #eef2f6; }
+        .item-name { font-size: 1.08rem; font-weight: 500; color: #1e293b; max-width: 35%; }
+        .item-actions { display: flex; gap: 6px; }
+        .item-actions button { background: white; border: none; width: 40px; height: 40px; border-radius: 40px; font-size: 1.2rem; border: 1px solid #dce3ec; cursor: pointer; }
         .item-controls { display: flex; align-items: center; gap: 12px; }
-        .item-controls button { width: 44px; height: 44px; border-radius: 44px; border: none; background: white; font-size: 1.6rem; font-weight: 600; color: #3b82f6; box-shadow: 0 4px 8px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .item-controls button:active { background: #f1f5f9; border-color: #94a3b8; transform: scale(0.92); }
+        .item-controls button { width: 44px; height: 44px; border-radius: 44px; border: none; background: white; font-size: 1.6rem; color: #3b82f6; border: 1px solid #e2e8f0; cursor: pointer; }
         .item-controls .quantity { font-size: 1.3rem; font-weight: 600; min-width: 28px; text-align: center; color: #0f172a; }
-        .empty-items { text-align: center; color: #94a3b8; padding: 22px 0 12px; background: #f8fafc; border-radius: 60px; }
+        .empty-items { text-align: center; color: #94a3b8; padding: 22px 0; background: #f8fafc; border-radius: 60px; }
 
-        .generate-area { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, #ffffff, #ffffffec); padding: 16px 20px 28px; box-shadow: 0 -6px 20px rgba(0,0,0,0.02); border-top: 1px solid #edf2f7; display: flex; flex-direction: column; align-items: center; backdrop-filter: blur(8px); z-index: 20; }
-        .btn-generate { background: #0f172a; color: white; border: none; border-radius: 60px; padding: 18px 28px; width: 100%; max-width: 400px; font-size: 1.3rem; font-weight: 700; letter-spacing: 1px; box-shadow: 0 10px 24px rgba(15,23,42,0.25); cursor: pointer; }
+        .generate-area { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 16px 20px 28px; border-top: 1px solid #edf2f7; display: flex; flex-direction: column; align-items: center; z-index: 20; }
+        .btn-generate { background: #0f172a; color: white; border: none; border-radius: 60px; padding: 18px 28px; width: 100%; max-width: 400px; font-size: 1.3rem; font-weight: 700; cursor: pointer; }
         .btn-generate:active { background: #1e293b; transform: scale(0.97); }
-        .image-preview { margin-top: 24px; margin-bottom: 16px; border-radius: 32px; background: white; padding: 16px; box-shadow: 0 8px 22px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; width: 100%; }
-        .image-preview p { color: #475569; font-weight: 500; margin-bottom: 10px; }
-        .preview-img { max-width: 100%; border-radius: 24px; box-shadow: 0 6px 18px rgba(0,0,0,0.1); border: 2px solid white; }
+        .image-preview { margin-top: 24px; border-radius: 32px; background: white; padding: 16px; display: flex; flex-direction: column; align-items: center; width: 100%; }
+        .preview-img { max-width: 100%; border-radius: 24px; border: 2px solid white; }
         .note { color: #64748b; font-size: 0.85rem; margin-top: 10px; text-align: center; }
 
-        #capture-area { position: absolute; left: -9999px; top: 0; width: 380px; background: white; padding: 24px 22px; border-radius: 32px; box-shadow: 0 20px 30px rgba(0,0,0,0.1); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; pointer-events: none; z-index: -1; }
-        .capture-title { font-size: 1.8rem; font-weight: 700; color: #0b1e33; text-align: center; margin-bottom: 8px; }
+        #capture-area { position: absolute; left: -9999px; top: 0; width: 380px; background: white; padding: 24px 22px; border-radius: 32px; pointer-events: none; }
+        .capture-title { font-size: 1.8rem; font-weight: 700; color: #0b1e33; text-align: center; }
         .capture-date { text-align: center; color: #64748b; border-bottom: 2px dashed #cbd5e1; padding-bottom: 18px; margin-bottom: 18px; }
         .capture-item-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; font-size: 1.2rem; }
-        .capture-item-name { font-weight: 500; color: #1e293b; }
         .capture-item-qty { background: #eef2ff; padding: 6px 18px; border-radius: 60px; color: #3b82f6; font-weight: 700; }
         .capture-total-line { margin-top: 20px; text-align: right; font-weight: 700; font-size: 1.3rem; color: #0f172a; }
     </style>
@@ -93,10 +91,10 @@
         </div>
     </div>
 
-    <!-- 动态菜单渲染区 -->
+    <!-- 主菜单渲染区 -->
     <div id="menuContainer" class="menu-container"></div>
 
-    <!-- 底部生成图片按钮及预览 -->
+    <!-- 底部生成图片 -->
     <div class="generate-area">
         <button class="btn-generate" id="generateImgBtn">✨ 生成今日点菜图片</button>
         <div id="imagePreview" class="image-preview" style="display: none;">
@@ -106,42 +104,20 @@
         <div class="note">所有操作自动保存，下次打开自动恢复</div>
     </div>
 
-    <!-- 隐藏的截图专用容器 -->
+    <!-- 隐藏截图容器 -->
     <div id="capture-area"></div>
 
     <script>
         (function() {
-            // ---------- 本地存储键名 ----------
-            const STORAGE_KEY = 'menuAppData';
+            const STORAGE_KEY = 'menuAppData_v2'; // 换一个key避免旧数据干扰
 
-            // ---------- 默认初始数据 ----------
+            // 默认数据
             const defaultMenu = [
-                {
-                    categoryName: '🔥 热菜',
-                    items: [
-                        { name: '红烧肉', quantity: 0 },
-                        { name: '鱼香肉丝', quantity: 0 },
-                        { name: '宫保鸡丁', quantity: 0 }
-                    ]
-                },
-                {
-                    categoryName: '🥗 凉菜',
-                    items: [
-                        { name: '拍黄瓜', quantity: 0 },
-                        { name: '凉拌木耳', quantity: 0 }
-                    ]
-                },
-                {
-                    categoryName: '🍚 主食',
-                    items: [
-                        { name: '米饭', quantity: 0 },
-                        { name: '馒头', quantity: 0 },
-                        { name: '炒面', quantity: 0 }
-                    ]
-                }
+                { categoryName: '🔥 热菜', items: [ { name: '红烧肉', quantity: 0 }, { name: '鱼香肉丝', quantity: 0 }, { name: '宫保鸡丁', quantity: 0 } ] },
+                { categoryName: '🥗 凉菜', items: [ { name: '拍黄瓜', quantity: 0 }, { name: '凉拌木耳', quantity: 0 } ] },
+                { categoryName: '🍚 主食', items: [ { name: '米饭', quantity: 0 }, { name: '馒头', quantity: 0 }, { name: '炒面', quantity: 0 } ] }
             ];
 
-            // 从默认菜单生成默认历史菜品（去重）
             function generateDefaultHistory() {
                 const history = [];
                 const seen = new Set();
@@ -157,11 +133,9 @@
                 return history;
             }
 
-            // ---------- 全局变量 ----------
             let menu = [];
             let historyItems = [];
 
-            // ---------- 加载数据（优先从localStorage读取）----------
             function loadData() {
                 const saved = localStorage.getItem(STORAGE_KEY);
                 if (saved) {
@@ -169,50 +143,39 @@
                         const data = JSON.parse(saved);
                         menu = data.menu || [];
                         historyItems = data.historyItems || [];
-                        // 确保每个菜品都有quantity字段（旧数据可能没有）
                         menu.forEach(cat => {
-                            cat.items.forEach(item => {
-                                if (item.quantity === undefined) item.quantity = 0;
-                            });
+                            cat.items.forEach(item => { if (item.quantity === undefined) item.quantity = 0; });
                         });
                     } catch (e) {
-                        console.warn('解析存储数据失败，使用默认值', e);
-                        useDefaultData();
+                        console.warn('解析失败，使用默认数据');
+                        useDefault();
                     }
                 } else {
-                    useDefaultData();
+                    useDefault();
                 }
             }
 
-            function useDefaultData() {
-                menu = JSON.parse(JSON.stringify(defaultMenu)); // 深拷贝
+            function useDefault() {
+                menu = JSON.parse(JSON.stringify(defaultMenu));
                 historyItems = generateDefaultHistory();
             }
 
-            // ---------- 保存数据到localStorage ----------
             function saveData() {
-                const data = {
-                    menu: menu,
-                    historyItems: historyItems
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ menu, historyItems }));
             }
 
-            // ---------- 辅助：向历史菜品添加一条（如果同品类同名则忽略）----------
             function addHistoryItem(name, category) {
-                const exists = historyItems.some(item => item.name === name && item.category === category);
-                if (!exists) {
+                if (!historyItems.some(item => item.name === name && item.category === category)) {
                     historyItems.push({ name, category });
                 }
             }
 
-            // ---------- 渲染主菜单 ----------
+            // 渲染主菜单（略，与之前相同）
             function renderMenu() {
                 if (menu.length === 0) {
-                    menuContainer.innerHTML = '<div style="text-align:center; padding:40px; color:#aaa;">👆 点击上方“增加品类”开始创建菜单</div>';
+                    menuContainer.innerHTML = '<div style="text-align:center; padding:40px;">👆 点击上方“增加品类”开始创建菜单</div>';
                     return;
                 }
-
                 let html = '';
                 menu.forEach((category, catIndex) => {
                     html += `<div class="category-card">`;
@@ -222,8 +185,7 @@
                     html += `<button class="edit-cat" data-cat="${catIndex}" title="编辑品类">✏️</button>`;
                     html += `<button class="delete-cat" data-cat="${catIndex}" title="删除品类">🗑️</button>`;
                     html += `<button class="add-item-btn" data-cat="${catIndex}">➕ 添菜</button>`;
-                    html += `</div>`;
-                    html += `</div>`;
+                    html += `</div></div>`;
 
                     if (category.items.length === 0) {
                         html += `<div class="empty-items">暂无菜品，点“添菜”添加</div>`;
@@ -240,8 +202,7 @@
                             html += `<button class="dec" data-cat="${catIndex}" data-item="${itemIndex}">−</button>`;
                             html += `<span class="quantity">${item.quantity}</span>`;
                             html += `<button class="inc" data-cat="${catIndex}" data-item="${itemIndex}">+</button>`;
-                            html += `</div>`;
-                            html += `</div>`;
+                            html += `</div></div>`;
                         });
                         html += `</div>`;
                     }
@@ -250,109 +211,97 @@
                 menuContainer.innerHTML = html;
             }
 
-            // ---------- 渲染历史菜单 ----------
+            // 渲染历史菜单（重点：确保按钮存在）
             function renderHistory() {
+                // 按品类分组
                 const groups = {};
                 historyItems.forEach(item => {
-                    const cat = item.category;
-                    if (!groups[cat]) groups[cat] = [];
-                    groups[cat].push(item);
+                    if (!groups[item.category]) groups[item.category] = [];
+                    groups[item.category].push(item);
                 });
-                const categoryNames = menu.map(c => c.categoryName);
 
+                const categoryNames = menu.map(c => c.categoryName);
                 let html = '';
-                categoryNames.forEach(catName => {
-                    const dishes = groups[catName] || [];
-                    html += `<div class="history-category-card">`;
-                    html += `<div class="history-category-header">`;
-                    html += `<h4>${catName}</h4>`;
-                    html += `<div class="history-cat-actions">`;
-                    html += `<button class="history-edit-cat" data-category="${catName}" title="编辑品类">✏️ 编辑</button>`;
-                    html += `<button class="history-delete-cat" data-category="${catName}" title="删除品类">🗑️ 删除</button>`;
-                    html += `</div>`;
-                    html += `</div>`;
-                    html += `<button class="add-history-dish-btn" data-category="${catName}">➕ 添加菜品</button>`;
-                    if (dishes.length === 0) {
-                        html += `<div style="color:#94a3b8; padding:12px; text-align:center;">暂无历史菜品，点击上方添加</div>`;
-                    } else {
-                        html += `<div class="history-dish-list">`;
-                        dishes.forEach(dish => {
-                            html += `<div class="history-dish-item" data-category="${catName}" data-name="${dish.name}">`;
-                            html += `<span>${dish.name}</span>`;
-                            html += `<div class="history-dish-actions">`;
-                            html += `<button class="history-edit" data-category="${catName}" data-name="${dish.name}" title="编辑">✏️</button>`;
-                            html += `<button class="history-delete" data-category="${catName}" data-name="${dish.name}" title="删除">🗑️</button>`;
-                            html += `<button class="history-add-to-menu" data-category="${catName}" data-name="${dish.name}" title="添加到当前菜单">➕</button>`;
-                            html += `</div>`;
-                            html += `</div>`;
-                        });
-                        html += `</div>`;
-                    }
-                    html += `</div>`;
-                });
 
                 if (categoryNames.length === 0) {
-                    html = '<div style="padding:20px; text-align:center; color:#94a3b8;">请先通过上方“增加品类”创建分类</div>';
+                    html = '<div style="padding:20px; text-align:center;">请先通过上方“增加品类”创建分类</div>';
+                } else {
+                    categoryNames.forEach(catName => {
+                        const dishes = groups[catName] || [];
+                        html += `<div class="history-category-card">`;
+                        // 品类头部：品类名 + 编辑/删除按钮
+                        html += `<div class="history-category-header">`;
+                        html += `<h4>${catName}</h4>`;
+                        html += `<div class="history-cat-actions">`;
+                        html += `<button class="history-edit-cat" data-category="${catName}" title="编辑品类">✏️ 编辑</button>`;
+                        html += `<button class="history-delete-cat" data-category="${catName}" title="删除品类">🗑️ 删除</button>`;
+                        html += `</div>`;
+                        html += `</div>`;
+                        // 向该品类添加历史菜品的按钮
+                        html += `<button class="add-history-dish-btn" data-category="${catName}">➕ 添加菜品</button>`;
+
+                        if (dishes.length === 0) {
+                            html += `<div style="color:#94a3b8; padding:12px; text-align:center;">暂无历史菜品，点击上方添加</div>`;
+                        } else {
+                            html += `<div class="history-dish-list">`;
+                            dishes.forEach(dish => {
+                                html += `<div class="history-dish-item" data-category="${catName}" data-name="${dish.name}">`;
+                                html += `<span>${dish.name}</span>`;
+                                html += `<div class="history-dish-actions">`;
+                                html += `<button class="history-edit" data-category="${catName}" data-name="${dish.name}" title="编辑">✏️</button>`;
+                                html += `<button class="history-delete" data-category="${catName}" data-name="${dish.name}" title="删除">🗑️</button>`;
+                                html += `<button class="history-add-to-menu" data-category="${catName}" data-name="${dish.name}" title="添加到当前菜单">➕</button>`;
+                                html += `</div>`;
+                                html += `</div>`;
+                            });
+                            html += `</div>`;
+                        }
+                        html += `</div>`;
+                    });
                 }
+
                 historyCategoryContainer.innerHTML = html;
             }
 
-            // ---------- 更新截图区域 ----------
+            // 更新截图区域（略）
             function updateCaptureArea() {
                 const today = new Date();
                 const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
-                
                 let selectedItems = [];
                 let totalCount = 0;
-                menu.forEach(category => {
-                    category.items.forEach(item => {
+                menu.forEach(cat => {
+                    cat.items.forEach(item => {
                         if (item.quantity > 0) {
                             selectedItems.push({ name: item.name, qty: item.quantity });
                             totalCount += item.quantity;
                         }
                     });
                 });
-
-                let captureHtml = `<div class="capture-title">🍜 今日点菜单</div>`;
-                captureHtml += `<div class="capture-date">${dateStr}</div>`;
-
+                let captureHtml = `<div class="capture-title">🍜 今日点菜单</div><div class="capture-date">${dateStr}</div>`;
                 if (selectedItems.length === 0) {
-                    captureHtml += `<div style="text-align:center; padding:30px; color:#aaa;">还没有点菜，去上面选几道吧~</div>`;
+                    captureHtml += `<div style="padding:30px; text-align:center;">还没有点菜～</div>`;
                 } else {
                     selectedItems.forEach(item => {
-                        captureHtml += `<div class="capture-item-row">`;
-                        captureHtml += `<span class="capture-item-name">${item.name}</span>`;
-                        captureHtml += `<span class="capture-item-qty">x ${item.qty}</span>`;
-                        captureHtml += `</div>`;
+                        captureHtml += `<div class="capture-item-row"><span class="capture-item-name">${item.name}</span><span class="capture-item-qty">x ${item.qty}</span></div>`;
                     });
                     captureHtml += `<div class="capture-total-line">共 ${totalCount} 道</div>`;
                 }
                 captureArea.innerHTML = captureHtml;
             }
 
-            // ---------- 生成图片 ----------
             async function generateImage() {
                 updateCaptureArea();
                 try {
-                    await new Promise(resolve => setTimeout(resolve, 30));
-                    const canvas = await html2canvas(captureArea, {
-                        scale: 2,
-                        backgroundColor: '#ffffff',
-                        allowTaint: false,
-                        useCORS: true,
-                        logging: false,
-                        windowWidth: 380,
-                    });
-                    const imgData = canvas.toDataURL('image/png');
-                    previewImg.src = imgData;
+                    await new Promise(r => setTimeout(r, 30));
+                    const canvas = await html2canvas(captureArea, { scale: 2, backgroundColor: '#ffffff', windowWidth: 380 });
+                    previewImg.src = canvas.toDataURL('image/png');
                     previewDiv.style.display = 'flex';
                 } catch (error) {
-                    alert('生成图片失败，请重试');
-                    console.error(error);
+                    alert('生成图片失败');
                 }
             }
 
-            // ---------- DOM 元素 ----------
+            // DOM 元素
             const menuContainer = document.getElementById('menuContainer');
             const addCategoryBtn = document.getElementById('addCategoryBtn');
             const generateBtn = document.getElementById('generateImgBtn');
@@ -363,220 +312,145 @@
             const historyToggleBtn = document.getElementById('historyToggleBtn');
             const historyCategoryContainer = document.getElementById('historyCategoryContainer');
 
-            // ---------- 事件监听（主菜单）----------
+            // 主菜单事件（与之前相同，但确保触发保存）
             menuContainer.addEventListener('click', (e) => {
                 const target = e.target;
                 if (target.classList.contains('inc')) {
-                    const cat = target.dataset.cat;
-                    const item = target.dataset.item;
-                    if (cat !== undefined && item !== undefined) {
-                        menu[cat].items[item].quantity += 1;
-                        renderMenu();
-                        saveData(); // 保存
+                    const cat = target.dataset.cat, item = target.dataset.item;
+                    menu[cat].items[item].quantity++;
+                    renderMenu(); saveData();
+                } else if (target.classList.contains('dec')) {
+                    const cat = target.dataset.cat, item = target.dataset.item;
+                    if (menu[cat].items[item].quantity > 0) {
+                        menu[cat].items[item].quantity--;
+                        renderMenu(); saveData();
                     }
-                    e.preventDefault();
-                }
-                else if (target.classList.contains('dec')) {
+                } else if (target.classList.contains('add-item-btn')) {
                     const cat = target.dataset.cat;
-                    const item = target.dataset.item;
-                    if (cat !== undefined && item !== undefined) {
-                        const currentQty = menu[cat].items[item].quantity;
-                        if (currentQty > 0) {
-                            menu[cat].items[item].quantity -= 1;
-                            renderMenu();
-                            saveData();
-                        }
+                    const name = prompt('新菜品名称');
+                    if (name && name.trim()) {
+                        const dishName = name.trim();
+                        const catName = menu[cat].categoryName;
+                        menu[cat].items.push({ name: dishName, quantity: 0 });
+                        addHistoryItem(dishName, catName);
+                        renderMenu(); renderHistory(); saveData();
                     }
-                    e.preventDefault();
-                }
-                else if (target.classList.contains('add-item-btn')) {
+                } else if (target.classList.contains('edit-cat')) {
                     const cat = target.dataset.cat;
-                    if (cat !== undefined) {
-                        const newDish = prompt('请输入新菜品名称', '例如：蒜蓉生蚝');
-                        if (newDish && newDish.trim() !== '') {
-                            const dishName = newDish.trim();
-                            const categoryName = menu[cat].categoryName;
-                            menu[cat].items.push({ name: dishName, quantity: 0 });
-                            addHistoryItem(dishName, categoryName);
-                            renderMenu();
-                            renderHistory();
-                            saveData();
-                        } else if (newDish !== null) {
-                            alert('名称不能为空');
-                        }
-                    }
-                    e.preventDefault();
-                }
-                else if (target.classList.contains('edit-cat')) {
-                    const cat = target.dataset.cat;
-                    if (cat !== undefined) {
+                    const newName = prompt('修改品类名称', menu[cat].categoryName);
+                    if (newName && newName.trim()) {
                         const oldName = menu[cat].categoryName;
-                        const newName = prompt('修改品类名称', oldName);
-                        if (newName && newName.trim() !== '') {
-                            menu[cat].categoryName = newName.trim();
-                            historyItems.forEach(item => {
-                                if (item.category === oldName) {
-                                    item.category = newName.trim();
-                                }
-                            });
-                            renderMenu();
-                            renderHistory();
-                            saveData();
-                        } else if (newName !== null) {
-                            alert('名称不能为空');
-                        }
+                        menu[cat].categoryName = newName.trim();
+                        historyItems.forEach(item => { if (item.category === oldName) item.category = newName.trim(); });
+                        renderMenu(); renderHistory(); saveData();
                     }
-                    e.preventDefault();
-                }
-                else if (target.classList.contains('delete-cat')) {
+                } else if (target.classList.contains('delete-cat')) {
                     const cat = target.dataset.cat;
-                    if (cat !== undefined) {
-                        if (confirm(`确定要删除品类“${menu[cat].categoryName}”及其所有菜品吗？`)) {
-                            const deletedCat = menu[cat].categoryName;
-                            menu.splice(cat, 1);
-                            historyItems = historyItems.filter(item => item.category !== deletedCat);
-                            renderMenu();
-                            renderHistory();
-                            saveData();
-                        }
+                    if (confirm(`删除品类“${menu[cat].categoryName}”?`)) {
+                        const deletedCat = menu[cat].categoryName;
+                        menu.splice(cat, 1);
+                        historyItems = historyItems.filter(item => item.category !== deletedCat);
+                        renderMenu(); renderHistory(); saveData();
                     }
-                    e.preventDefault();
-                }
-                else if (target.classList.contains('edit-item')) {
-                    const cat = target.dataset.cat;
-                    const item = target.dataset.item;
-                    if (cat !== undefined && item !== undefined) {
+                } else if (target.classList.contains('edit-item')) {
+                    const cat = target.dataset.cat, item = target.dataset.item;
+                    const newName = prompt('修改菜名', menu[cat].items[item].name);
+                    if (newName && newName.trim()) {
                         const oldName = menu[cat].items[item].name;
-                        const newName = prompt('修改菜名', oldName);
-                        if (newName && newName.trim() !== '') {
-                            menu[cat].items[item].name = newName.trim();
-                            const categoryName = menu[cat].categoryName;
-                            const historyItem = historyItems.find(h => h.name === oldName && h.category === categoryName);
-                            if (historyItem) {
-                                historyItem.name = newName.trim();
-                            } else {
-                                addHistoryItem(newName.trim(), categoryName);
-                            }
-                            renderMenu();
-                            renderHistory();
-                            saveData();
-                        } else if (newName !== null) {
-                            alert('名称不能为空');
-                        }
+                        const catName = menu[cat].categoryName;
+                        menu[cat].items[item].name = newName.trim();
+                        const historyItem = historyItems.find(h => h.name === oldName && h.category === catName);
+                        if (historyItem) historyItem.name = newName.trim();
+                        else addHistoryItem(newName.trim(), catName);
+                        renderMenu(); renderHistory(); saveData();
                     }
-                    e.preventDefault();
-                }
-                else if (target.classList.contains('delete-item')) {
-                    const cat = target.dataset.cat;
-                    const item = target.dataset.item;
-                    if (cat !== undefined && item !== undefined) {
-                        if (confirm(`确定要删除“${menu[cat].items[item].name}”吗？`)) {
-                            menu[cat].items.splice(item, 1);
-                            renderMenu();
-                            saveData();
-                        }
+                } else if (target.classList.contains('delete-item')) {
+                    const cat = target.dataset.cat, item = target.dataset.item;
+                    if (confirm(`删除“${menu[cat].items[item].name}”?`)) {
+                        menu[cat].items.splice(item, 1);
+                        renderMenu(); saveData();
                     }
-                    e.preventDefault();
                 }
+                e.preventDefault();
             });
 
-            // ---------- 历史菜单事件 ----------
+            // 历史菜单事件（确保每个按钮都有对应操作）
             historyCategoryContainer.addEventListener('click', (e) => {
                 const target = e.target;
 
+                // 编辑品类
                 if (target.classList.contains('history-edit-cat')) {
                     const category = target.dataset.category;
                     if (category) {
-                        const oldName = category;
-                        const newName = prompt('修改品类名称', oldName);
-                        if (newName && newName.trim() !== '') {
+                        const newName = prompt('修改品类名称', category);
+                        if (newName && newName.trim()) {
+                            const oldName = category;
+                            // 更新主菜单
                             const catIndex = menu.findIndex(c => c.categoryName === oldName);
-                            if (catIndex !== -1) {
-                                menu[catIndex].categoryName = newName.trim();
-                            }
-                            historyItems.forEach(item => {
-                                if (item.category === oldName) {
-                                    item.category = newName.trim();
-                                }
-                            });
-                            renderMenu();
-                            renderHistory();
-                            saveData();
-                        } else if (newName !== null) {
-                            alert('名称不能为空');
+                            if (catIndex !== -1) menu[catIndex].categoryName = newName.trim();
+                            // 更新历史记录中的品类
+                            historyItems.forEach(item => { if (item.category === oldName) item.category = newName.trim(); });
+                            renderMenu(); renderHistory(); saveData();
                         }
                     }
                     e.preventDefault();
                 }
 
+                // 删除品类
                 if (target.classList.contains('history-delete-cat')) {
                     const category = target.dataset.category;
-                    if (category) {
-                        if (confirm(`确定要删除品类“${category}”及其所有历史菜品吗？`)) {
-                            const catIndex = menu.findIndex(c => c.categoryName === category);
-                            if (catIndex !== -1) {
-                                menu.splice(catIndex, 1);
-                            }
-                            historyItems = historyItems.filter(item => item.category !== category);
-                            renderMenu();
-                            renderHistory();
-                            saveData();
-                        }
+                    if (category && confirm(`删除品类“${category}”及其所有历史菜品？`)) {
+                        // 从主菜单删除
+                        const catIndex = menu.findIndex(c => c.categoryName === category);
+                        if (catIndex !== -1) menu.splice(catIndex, 1);
+                        // 从历史删除
+                        historyItems = historyItems.filter(item => item.category !== category);
+                        renderMenu(); renderHistory(); saveData();
                     }
                     e.preventDefault();
                 }
 
+                // 添加历史菜品
                 if (target.classList.contains('add-history-dish-btn')) {
                     const category = target.dataset.category;
                     if (category) {
-                        const newDish = prompt(`向“${category}”添加历史菜品`, '例如：新菜名');
-                        if (newDish && newDish.trim() !== '') {
-                            const dishName = newDish.trim();
-                            addHistoryItem(dishName, category);
-                            renderHistory();
-                            saveData();
-                        } else if (newDish !== null) {
-                            alert('名称不能为空');
+                        const name = prompt(`向“${category}”添加历史菜品`);
+                        if (name && name.trim()) {
+                            addHistoryItem(name.trim(), category);
+                            renderHistory(); saveData();
                         }
                     }
                     e.preventDefault();
                 }
 
+                // 编辑历史菜品
                 if (target.classList.contains('history-edit')) {
                     const category = target.dataset.category;
                     const name = target.dataset.name;
                     if (category && name) {
                         const newName = prompt('修改历史菜名', name);
-                        if (newName && newName.trim() !== '') {
+                        if (newName && newName.trim()) {
                             const item = historyItems.find(h => h.name === name && h.category === category);
-                            if (item) {
-                                item.name = newName.trim();
-                                renderHistory();
-                                saveData();
-                            }
-                        } else if (newName !== null) {
-                            alert('名称不能为空');
+                            if (item) item.name = newName.trim();
+                            renderHistory(); saveData();
                         }
                     }
                     e.preventDefault();
                 }
 
+                // 删除历史菜品
                 if (target.classList.contains('history-delete')) {
                     const category = target.dataset.category;
                     const name = target.dataset.name;
-                    if (category && name) {
-                        if (confirm(`确定从历史中删除“${name}”吗？`)) {
-                            const index = historyItems.findIndex(h => h.name === name && h.category === category);
-                            if (index !== -1) {
-                                historyItems.splice(index, 1);
-                                renderHistory();
-                                saveData();
-                            }
-                        }
+                    if (category && name && confirm(`删除历史菜品“${name}”?`)) {
+                        const index = historyItems.findIndex(h => h.name === name && h.category === category);
+                        if (index !== -1) historyItems.splice(index, 1);
+                        renderHistory(); saveData();
                     }
                     e.preventDefault();
                 }
 
+                // 从历史添加到当前菜单
                 if (target.classList.contains('history-add-to-menu')) {
                     const category = target.dataset.category;
                     const name = target.dataset.name;
@@ -587,63 +461,44 @@
                             catIndex = menu.length - 1;
                         }
                         menu[catIndex].items.push({ name: name, quantity: 0 });
-                        renderMenu();
-                        saveData();
+                        renderMenu(); saveData();
                     }
                     e.preventDefault();
                 }
             });
 
-            // ---------- 顶部增加品类 ----------
+            // 增加品类
             addCategoryBtn.addEventListener('click', () => {
-                const newCategory = prompt('请输入新品类名称', '例如：汤羹');
-                if (newCategory && newCategory.trim() !== '') {
-                    menu.push({
-                        categoryName: newCategory.trim(),
-                        items: []
-                    });
-                    renderMenu();
-                    renderHistory();
-                    saveData();
-                } else if (newCategory !== null) {
-                    alert('品类名不能为空');
+                const newName = prompt('新品类名称');
+                if (newName && newName.trim()) {
+                    menu.push({ categoryName: newName.trim(), items: [] });
+                    renderMenu(); renderHistory(); saveData();
                 }
             });
 
-            // ---------- 折叠按钮 ----------
+            // 折叠
             let historyExpanded = false;
             historyToggleBtn.addEventListener('click', () => {
                 historyExpanded = !historyExpanded;
-                if (historyExpanded) {
-                    historyContent.classList.remove('collapsed');
-                    historyToggleBtn.innerText = '▲';
-                } else {
-                    historyContent.classList.add('collapsed');
-                    historyToggleBtn.innerText = '▼';
-                }
+                historyContent.classList.toggle('collapsed', !historyExpanded);
+                historyToggleBtn.innerText = historyExpanded ? '▲' : '▼';
             });
 
-            // ---------- 生成图片按钮 ----------
+            // 生成图片
             generateBtn.addEventListener('click', async () => {
                 let hasAny = false;
-                for (let cat of menu) {
-                    for (let item of cat.items) {
-                        if (item.quantity > 0) { hasAny = true; break; }
-                    }
-                }
-                if (!hasAny) {
-                    alert('您还没有选择任何菜品，请先点菜～');
-                    return;
-                }
+                for (let cat of menu) for (let item of cat.items) if (item.quantity > 0) { hasAny = true; break; }
+                if (!hasAny) { alert('请先点菜'); return; }
                 await generateImage();
             });
 
-            // ---------- 初始化 ----------
-            loadData();              // 加载本地存储数据
+            // 初始化
+            loadData();
             renderMenu();
             renderHistory();
             previewDiv.style.display = 'none';
-            toggleHistory(false);    // 默认折叠
+            historyContent.classList.add('collapsed');
+            historyToggleBtn.innerText = '▼';
         })();
     </script>
 </body>
