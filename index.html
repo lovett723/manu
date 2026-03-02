@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>微信点菜单 · 按品类管理历史菜单（支持品类编辑/删除）</title>
+    <title>微信点菜单 · 本地持久化（自动保存）</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        /* 基础样式与之前相同，仅稍作调整 */
+        /* 样式与之前完全一致，保持不变 */
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
         body { background: #f3f4f6; min-height: 100vh; padding: 16px 12px 100px; display: flex; flex-direction: column; }
         .app-header { display: flex; align-items: center; justify-content: space-between; background: white; padding: 12px 16px; border-radius: 28px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-bottom: 12px; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(4px); background: rgba(255,255,255,0.9); }
@@ -14,7 +14,6 @@
         .btn-primary { background: #3b82f6; border: none; color: white; font-weight: 600; font-size: 1rem; padding: 10px 22px; border-radius: 40px; box-shadow: 0 6px 14px rgba(59,130,246,0.25); cursor: pointer; transition: 0.15s; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap; }
         .btn-primary:active { background: #2563eb; transform: scale(0.96); }
 
-        /* 历史菜单卡片（可折叠，内部按品类分组） */
         .history-card { background: #ffffffd9; backdrop-filter: blur(8px); border-radius: 28px; margin-bottom: 18px; padding: 10px 16px; border: 1px solid #e9eef3; box-shadow: 0 6px 14px rgba(0,0,0,0.02); }
         .history-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
         .history-header h3 { font-size: 1.25rem; font-weight: 650; color: #2d3a4f; display: flex; align-items: center; gap: 6px; }
@@ -22,7 +21,6 @@
         .history-content { overflow: hidden; transition: max-height 0.2s ease; }
         .history-content.collapsed { max-height: 0; }
 
-        /* 历史菜单内部分组卡片 */
         .history-category-card { background: #f9fafc; border-radius: 24px; padding: 14px 12px; margin: 12px 0; border: 1px solid #eef2f6; }
         .history-category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
         .history-category-header h4 { font-size: 1.15rem; font-weight: 650; color: #1e293b; border-left: 5px solid #94a3b8; padding-left: 12px; flex: 1; }
@@ -69,7 +67,6 @@
         .preview-img { max-width: 100%; border-radius: 24px; box-shadow: 0 6px 18px rgba(0,0,0,0.1); border: 2px solid white; }
         .note { color: #64748b; font-size: 0.85rem; margin-top: 10px; text-align: center; }
 
-        /* 隐藏截图区域 */
         #capture-area { position: absolute; left: -9999px; top: 0; width: 380px; background: white; padding: 24px 22px; border-radius: 32px; box-shadow: 0 20px 30px rgba(0,0,0,0.1); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; pointer-events: none; z-index: -1; }
         .capture-title { font-size: 1.8rem; font-weight: 700; color: #0b1e33; text-align: center; margin-bottom: 8px; }
         .capture-date { text-align: center; color: #64748b; border-bottom: 2px dashed #cbd5e1; padding-bottom: 18px; margin-bottom: 18px; }
@@ -85,16 +82,14 @@
         <button class="btn-primary" id="addCategoryBtn">+ 增加品类</button>
     </div>
 
-    <!-- 历史菜单区域（按品类分类管理，支持编辑/删除品类） -->
+    <!-- 历史菜单区域 -->
     <div class="history-card">
         <div class="history-header">
             <h3><span>📜</span> 历史菜单 · 按品类</h3>
             <button class="history-toggle" id="historyToggleBtn">▼</button>
         </div>
         <div id="historyContent" class="history-content collapsed">
-            <div id="historyCategoryContainer">
-                <!-- 动态渲染各品类历史菜品，并包含品类编辑/删除按钮 -->
-            </div>
+            <div id="historyCategoryContainer"></div>
         </div>
     </div>
 
@@ -108,7 +103,7 @@
             <p>👇 长按图片保存分享</p>
             <img id="previewImg" class="preview-img" src="" alt="今日点菜单">
         </div>
-        <div class="note">每个品类下可管理历史菜品，点击➕可添加到当前菜单</div>
+        <div class="note">所有操作自动保存，下次打开自动恢复</div>
     </div>
 
     <!-- 隐藏的截图专用容器 -->
@@ -116,8 +111,11 @@
 
     <script>
         (function() {
-            // ----- 主菜单数据 -----
-            const menu = [
+            // ---------- 本地存储键名 ----------
+            const STORAGE_KEY = 'menuAppData';
+
+            // ---------- 默认初始数据 ----------
+            const defaultMenu = [
                 {
                     categoryName: '🔥 热菜',
                     items: [
@@ -143,102 +141,64 @@
                 }
             ];
 
-            // ----- 历史菜品数据（每个对象包含 name 和 category）-----
-            let historyItems = [];
-
-            // ----- 折叠状态 -----
-            let historyExpanded = false;
-
-            // ----- DOM 元素 -----
-            const menuContainer = document.getElementById('menuContainer');
-            const addCategoryBtn = document.getElementById('addCategoryBtn');
-            const generateBtn = document.getElementById('generateImgBtn');
-            const previewDiv = document.getElementById('imagePreview');
-            const previewImg = document.getElementById('previewImg');
-            const captureArea = document.getElementById('capture-area');
-            const historyContent = document.getElementById('historyContent');
-            const historyToggleBtn = document.getElementById('historyToggleBtn');
-            const historyCategoryContainer = document.getElementById('historyCategoryContainer');
-
-            // ----- 初始化历史菜品：从默认菜单中提取所有菜品作为历史记录（去重）-----
-            function initHistoryFromMenu() {
+            // 从默认菜单生成默认历史菜品（去重）
+            function generateDefaultHistory() {
+                const history = [];
                 const seen = new Set();
-                menu.forEach(cat => {
+                defaultMenu.forEach(cat => {
                     cat.items.forEach(item => {
                         const key = `${cat.categoryName}|${item.name}`;
                         if (!seen.has(key)) {
                             seen.add(key);
-                            historyItems.push({ name: item.name, category: cat.categoryName });
+                            history.push({ name: item.name, category: cat.categoryName });
                         }
                     });
                 });
-            }
-            initHistoryFromMenu();
-
-            // ----- 获取当前所有品类名称 -----
-            function getAllCategoryNames() {
-                return menu.map(c => c.categoryName);
+                return history;
             }
 
-            // ----- 按品类分组历史菜品 -----
-            function getHistoryGrouped() {
-                const groups = {};
-                historyItems.forEach(item => {
-                    const cat = item.category;
-                    if (!groups[cat]) groups[cat] = [];
-                    groups[cat].push(item);
-                });
-                return groups;
-            }
+            // ---------- 全局变量 ----------
+            let menu = [];
+            let historyItems = [];
 
-            // ----- 渲染历史菜单（按品类分组，并添加品类编辑/删除按钮）-----
-            function renderHistory() {
-                const groups = getHistoryGrouped();
-                const categoryNames = getAllCategoryNames();
-
-                let html = '';
-                // 遍历所有品类
-                categoryNames.forEach(catName => {
-                    const dishes = groups[catName] || [];
-                    html += `<div class="history-category-card">`;
-                    html += `<div class="history-category-header">`;
-                    html += `<h4>${catName}</h4>`;
-                    // 品类操作按钮：编辑、删除（与主菜单类似，但操作历史品类）
-                    html += `<div class="history-cat-actions">`;
-                    html += `<button class="history-edit-cat" data-category="${catName}" title="编辑品类">✏️ 编辑</button>`;
-                    html += `<button class="history-delete-cat" data-category="${catName}" title="删除品类">🗑️ 删除</button>`;
-                    html += `</div>`;
-                    html += `</div>`;
-                    // 添加历史菜品按钮
-                    html += `<button class="add-history-dish-btn" data-category="${catName}">➕ 添加菜品</button>`;
-                    if (dishes.length === 0) {
-                        html += `<div style="color:#94a3b8; padding:12px; text-align:center;">暂无历史菜品，点击上方添加</div>`;
-                    } else {
-                        html += `<div class="history-dish-list">`;
-                        dishes.forEach((dish, idx) => {
-                            html += `<div class="history-dish-item" data-category="${catName}" data-name="${dish.name}">`;
-                            html += `<span>${dish.name}</span>`;
-                            html += `<div class="history-dish-actions">`;
-                            html += `<button class="history-edit" data-category="${catName}" data-name="${dish.name}" title="编辑">✏️</button>`;
-                            html += `<button class="history-delete" data-category="${catName}" data-name="${dish.name}" title="删除">🗑️</button>`;
-                            html += `<button class="history-add-to-menu" data-category="${catName}" data-name="${dish.name}" title="添加到当前菜单">➕</button>`;
-                            html += `</div>`;
-                            html += `</div>`;
+            // ---------- 加载数据（优先从localStorage读取）----------
+            function loadData() {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    try {
+                        const data = JSON.parse(saved);
+                        menu = data.menu || [];
+                        historyItems = data.historyItems || [];
+                        // 确保每个菜品都有quantity字段（旧数据可能没有）
+                        menu.forEach(cat => {
+                            cat.items.forEach(item => {
+                                if (item.quantity === undefined) item.quantity = 0;
+                            });
                         });
-                        html += `</div>`;
+                    } catch (e) {
+                        console.warn('解析存储数据失败，使用默认值', e);
+                        useDefaultData();
                     }
-                    html += `</div>`;
-                });
-
-                // 如果没有任何品类，显示提示
-                if (categoryNames.length === 0) {
-                    html = '<div style="padding:20px; text-align:center; color:#94a3b8;">请先通过上方“增加品类”创建分类</div>';
+                } else {
+                    useDefaultData();
                 }
-
-                historyCategoryContainer.innerHTML = html;
             }
 
-            // ----- 辅助：向历史菜品添加一条（如果同品类同名则忽略）-----
+            function useDefaultData() {
+                menu = JSON.parse(JSON.stringify(defaultMenu)); // 深拷贝
+                historyItems = generateDefaultHistory();
+            }
+
+            // ---------- 保存数据到localStorage ----------
+            function saveData() {
+                const data = {
+                    menu: menu,
+                    historyItems: historyItems
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            }
+
+            // ---------- 辅助：向历史菜品添加一条（如果同品类同名则忽略）----------
             function addHistoryItem(name, category) {
                 const exists = historyItems.some(item => item.name === name && item.category === category);
                 if (!exists) {
@@ -246,7 +206,7 @@
                 }
             }
 
-            // ----- 渲染主菜单 -----
+            // ---------- 渲染主菜单 ----------
             function renderMenu() {
                 if (menu.length === 0) {
                     menuContainer.innerHTML = '<div style="text-align:center; padding:40px; color:#aaa;">👆 点击上方“增加品类”开始创建菜单</div>';
@@ -290,7 +250,54 @@
                 menuContainer.innerHTML = html;
             }
 
-            // ----- 更新截图区域 -----
+            // ---------- 渲染历史菜单 ----------
+            function renderHistory() {
+                const groups = {};
+                historyItems.forEach(item => {
+                    const cat = item.category;
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push(item);
+                });
+                const categoryNames = menu.map(c => c.categoryName);
+
+                let html = '';
+                categoryNames.forEach(catName => {
+                    const dishes = groups[catName] || [];
+                    html += `<div class="history-category-card">`;
+                    html += `<div class="history-category-header">`;
+                    html += `<h4>${catName}</h4>`;
+                    html += `<div class="history-cat-actions">`;
+                    html += `<button class="history-edit-cat" data-category="${catName}" title="编辑品类">✏️ 编辑</button>`;
+                    html += `<button class="history-delete-cat" data-category="${catName}" title="删除品类">🗑️ 删除</button>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                    html += `<button class="add-history-dish-btn" data-category="${catName}">➕ 添加菜品</button>`;
+                    if (dishes.length === 0) {
+                        html += `<div style="color:#94a3b8; padding:12px; text-align:center;">暂无历史菜品，点击上方添加</div>`;
+                    } else {
+                        html += `<div class="history-dish-list">`;
+                        dishes.forEach(dish => {
+                            html += `<div class="history-dish-item" data-category="${catName}" data-name="${dish.name}">`;
+                            html += `<span>${dish.name}</span>`;
+                            html += `<div class="history-dish-actions">`;
+                            html += `<button class="history-edit" data-category="${catName}" data-name="${dish.name}" title="编辑">✏️</button>`;
+                            html += `<button class="history-delete" data-category="${catName}" data-name="${dish.name}" title="删除">🗑️</button>`;
+                            html += `<button class="history-add-to-menu" data-category="${catName}" data-name="${dish.name}" title="添加到当前菜单">➕</button>`;
+                            html += `</div>`;
+                            html += `</div>`;
+                        });
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                });
+
+                if (categoryNames.length === 0) {
+                    html = '<div style="padding:20px; text-align:center; color:#94a3b8;">请先通过上方“增加品类”创建分类</div>';
+                }
+                historyCategoryContainer.innerHTML = html;
+            }
+
+            // ---------- 更新截图区域 ----------
             function updateCaptureArea() {
                 const today = new Date();
                 const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
@@ -323,7 +330,7 @@
                 captureArea.innerHTML = captureHtml;
             }
 
-            // ----- 生成图片 -----
+            // ---------- 生成图片 ----------
             async function generateImage() {
                 updateCaptureArea();
                 try {
@@ -345,8 +352,18 @@
                 }
             }
 
-            // ----- 事件监听（主菜单 + 历史菜单）-----
-            // 主菜单事件
+            // ---------- DOM 元素 ----------
+            const menuContainer = document.getElementById('menuContainer');
+            const addCategoryBtn = document.getElementById('addCategoryBtn');
+            const generateBtn = document.getElementById('generateImgBtn');
+            const previewDiv = document.getElementById('imagePreview');
+            const previewImg = document.getElementById('previewImg');
+            const captureArea = document.getElementById('capture-area');
+            const historyContent = document.getElementById('historyContent');
+            const historyToggleBtn = document.getElementById('historyToggleBtn');
+            const historyCategoryContainer = document.getElementById('historyCategoryContainer');
+
+            // ---------- 事件监听（主菜单）----------
             menuContainer.addEventListener('click', (e) => {
                 const target = e.target;
                 if (target.classList.contains('inc')) {
@@ -355,6 +372,7 @@
                     if (cat !== undefined && item !== undefined) {
                         menu[cat].items[item].quantity += 1;
                         renderMenu();
+                        saveData(); // 保存
                     }
                     e.preventDefault();
                 }
@@ -366,6 +384,7 @@
                         if (currentQty > 0) {
                             menu[cat].items[item].quantity -= 1;
                             renderMenu();
+                            saveData();
                         }
                     }
                     e.preventDefault();
@@ -378,10 +397,10 @@
                             const dishName = newDish.trim();
                             const categoryName = menu[cat].categoryName;
                             menu[cat].items.push({ name: dishName, quantity: 0 });
-                            // 加入历史
                             addHistoryItem(dishName, categoryName);
                             renderMenu();
                             renderHistory();
+                            saveData();
                         } else if (newDish !== null) {
                             alert('名称不能为空');
                         }
@@ -395,7 +414,6 @@
                         const newName = prompt('修改品类名称', oldName);
                         if (newName && newName.trim() !== '') {
                             menu[cat].categoryName = newName.trim();
-                            // 同步历史菜单中的品类名称
                             historyItems.forEach(item => {
                                 if (item.category === oldName) {
                                     item.category = newName.trim();
@@ -403,6 +421,7 @@
                             });
                             renderMenu();
                             renderHistory();
+                            saveData();
                         } else if (newName !== null) {
                             alert('名称不能为空');
                         }
@@ -415,10 +434,10 @@
                         if (confirm(`确定要删除品类“${menu[cat].categoryName}”及其所有菜品吗？`)) {
                             const deletedCat = menu[cat].categoryName;
                             menu.splice(cat, 1);
-                            // 同时删除历史菜单中属于该品类的所有菜品
                             historyItems = historyItems.filter(item => item.category !== deletedCat);
                             renderMenu();
                             renderHistory();
+                            saveData();
                         }
                     }
                     e.preventDefault();
@@ -431,17 +450,16 @@
                         const newName = prompt('修改菜名', oldName);
                         if (newName && newName.trim() !== '') {
                             menu[cat].items[item].name = newName.trim();
-                            // 同步历史菜单：如果有完全匹配的旧名称+品类，则更新
                             const categoryName = menu[cat].categoryName;
                             const historyItem = historyItems.find(h => h.name === oldName && h.category === categoryName);
                             if (historyItem) {
                                 historyItem.name = newName.trim();
                             } else {
-                                // 如果没有，则添加一条新历史
                                 addHistoryItem(newName.trim(), categoryName);
                             }
                             renderMenu();
                             renderHistory();
+                            saveData();
                         } else if (newName !== null) {
                             alert('名称不能为空');
                         }
@@ -454,31 +472,28 @@
                     if (cat !== undefined && item !== undefined) {
                         if (confirm(`确定要删除“${menu[cat].items[item].name}”吗？`)) {
                             menu[cat].items.splice(item, 1);
-                            // 历史记录保留，不删除（用户可能以后想再次添加）
                             renderMenu();
+                            saveData();
                         }
                     }
                     e.preventDefault();
                 }
             });
 
-            // 历史菜单事件（委托给 historyCategoryContainer）
+            // ---------- 历史菜单事件 ----------
             historyCategoryContainer.addEventListener('click', (e) => {
                 const target = e.target;
 
-                // 编辑品类（历史菜单中的品类编辑按钮）
                 if (target.classList.contains('history-edit-cat')) {
                     const category = target.dataset.category;
                     if (category) {
                         const oldName = category;
                         const newName = prompt('修改品类名称', oldName);
                         if (newName && newName.trim() !== '') {
-                            // 更新主菜单中的品类名称
                             const catIndex = menu.findIndex(c => c.categoryName === oldName);
                             if (catIndex !== -1) {
                                 menu[catIndex].categoryName = newName.trim();
                             }
-                            // 更新历史菜单中的品类名称
                             historyItems.forEach(item => {
                                 if (item.category === oldName) {
                                     item.category = newName.trim();
@@ -486,6 +501,7 @@
                             });
                             renderMenu();
                             renderHistory();
+                            saveData();
                         } else if (newName !== null) {
                             alert('名称不能为空');
                         }
@@ -493,26 +509,23 @@
                     e.preventDefault();
                 }
 
-                // 删除品类（历史菜单中的品类删除按钮）
                 if (target.classList.contains('history-delete-cat')) {
                     const category = target.dataset.category;
                     if (category) {
                         if (confirm(`确定要删除品类“${category}”及其所有历史菜品吗？`)) {
-                            // 从主菜单中删除该品类
                             const catIndex = menu.findIndex(c => c.categoryName === category);
                             if (catIndex !== -1) {
                                 menu.splice(catIndex, 1);
                             }
-                            // 从历史菜单中删除所有属于该品类的菜品
                             historyItems = historyItems.filter(item => item.category !== category);
                             renderMenu();
                             renderHistory();
+                            saveData();
                         }
                     }
                     e.preventDefault();
                 }
 
-                // 添加历史菜品到当前品类
                 if (target.classList.contains('add-history-dish-btn')) {
                     const category = target.dataset.category;
                     if (category) {
@@ -521,6 +534,7 @@
                             const dishName = newDish.trim();
                             addHistoryItem(dishName, category);
                             renderHistory();
+                            saveData();
                         } else if (newDish !== null) {
                             alert('名称不能为空');
                         }
@@ -528,7 +542,6 @@
                     e.preventDefault();
                 }
 
-                // 编辑历史菜品
                 if (target.classList.contains('history-edit')) {
                     const category = target.dataset.category;
                     const name = target.dataset.name;
@@ -539,6 +552,7 @@
                             if (item) {
                                 item.name = newName.trim();
                                 renderHistory();
+                                saveData();
                             }
                         } else if (newName !== null) {
                             alert('名称不能为空');
@@ -547,7 +561,6 @@
                     e.preventDefault();
                 }
 
-                // 删除历史菜品
                 if (target.classList.contains('history-delete')) {
                     const category = target.dataset.category;
                     const name = target.dataset.name;
@@ -557,33 +570,31 @@
                             if (index !== -1) {
                                 historyItems.splice(index, 1);
                                 renderHistory();
+                                saveData();
                             }
                         }
                     }
                     e.preventDefault();
                 }
 
-                // 从历史添加到当前菜单
                 if (target.classList.contains('history-add-to-menu')) {
                     const category = target.dataset.category;
                     const name = target.dataset.name;
                     if (category && name) {
-                        // 查找主菜单中是否有该品类，如果没有则自动创建
                         let catIndex = menu.findIndex(c => c.categoryName === category);
                         if (catIndex === -1) {
-                            // 自动创建新品类
                             menu.push({ categoryName: category, items: [] });
                             catIndex = menu.length - 1;
                         }
-                        // 检查该品类下是否已有同名菜品（可选，这里直接添加）
                         menu[catIndex].items.push({ name: name, quantity: 0 });
                         renderMenu();
+                        saveData();
                     }
                     e.preventDefault();
                 }
             });
 
-            // 顶部增加品类
+            // ---------- 顶部增加品类 ----------
             addCategoryBtn.addEventListener('click', () => {
                 const newCategory = prompt('请输入新品类名称', '例如：汤羹');
                 if (newCategory && newCategory.trim() !== '') {
@@ -593,12 +604,14 @@
                     });
                     renderMenu();
                     renderHistory();
+                    saveData();
                 } else if (newCategory !== null) {
                     alert('品类名不能为空');
                 }
             });
 
-            // 折叠按钮
+            // ---------- 折叠按钮 ----------
+            let historyExpanded = false;
             historyToggleBtn.addEventListener('click', () => {
                 historyExpanded = !historyExpanded;
                 if (historyExpanded) {
@@ -610,7 +623,7 @@
                 }
             });
 
-            // 生成图片按钮
+            // ---------- 生成图片按钮 ----------
             generateBtn.addEventListener('click', async () => {
                 let hasAny = false;
                 for (let cat of menu) {
@@ -625,11 +638,12 @@
                 await generateImage();
             });
 
-            // 初始化渲染
+            // ---------- 初始化 ----------
+            loadData();              // 加载本地存储数据
             renderMenu();
             renderHistory();
             previewDiv.style.display = 'none';
-            toggleHistory(false); // 默认折叠
+            toggleHistory(false);    // 默认折叠
         })();
     </script>
 </body>
